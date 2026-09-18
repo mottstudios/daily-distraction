@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DAILY DISTRACTION</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #000;
+    color: #fff;
+    font-family: "Instrument Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+    gap: 28px;
+  }
+  h1 {
+    margin: 0;
+    font-weight: 600;
+    font-size: clamp(41px, 8.4vw, 62px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .sub {
+    margin: -12px 0 0;
+    font-size: clamp(21px, 4.2vw, 27px);
+    font-weight: 400;
+    line-height: 1.3;
+    letter-spacing: 0;
+  }
+  #skull {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    line-height: 0;
+    transition: transform 120ms ease;
+  }
+  #skull:active { transform: scale(0.94); }
+  #skull img {
+    width: clamp(160px, 36vw, 260px);
+    height: auto;
+    display: block;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  #fallback { font-size: clamp(110px, 26vw, 190px); line-height: 1; display: none; }
+
+  /* ---------- the name gate ---------- */
+  #gate { width: 100%; max-width: min(30ch, 100%); display: none; flex-direction: column; gap: 18px; align-items: center; }
+  #gate.show { display: flex; }
+  #gateform { display: flex; width: 100%; gap: 10px; }
+  #who {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.35);
+    color: #fff;
+    font: inherit;
+    font-weight: 400;
+    font-size: clamp(21px, 4.2vw, 27px);
+    text-align: center;
+    padding: 6px 4px;
+    outline: none;
+  }
+  #who:focus { border-bottom-color: #fff; }
+  #gateform button {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff;
+    font: inherit;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0 16px;
+    cursor: pointer;
+  }
+  #gateform button:hover { border-color: #fff; }
+
+  /* fixed-height slot: the skull never moves, however long the pair is.
+     --opt-h is a fallback; the script measures the real worst case from the list. */
+  #msgbox {
+    width: 100%;
+    max-width: min(38ch, 100%);
+    font-size: clamp(21px, 4.2vw, 27px);
+    --opt-h: calc(1.3em * 4);
+    height: calc(var(--opt-h) * 2 + 2.2em);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+  #msgbox.show { opacity: 1; }
+  #choices {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .opt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--opt-h);
+    margin: 0;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: #fff;
+    font: inherit;
+    font-weight: 400;
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-align: center;
+    cursor: pointer;
+    overflow: hidden;
+    transition: opacity 320ms ease, height 320ms ease;
+  }
+  .opt:hover { opacity: 0.5; }
+  .opt:focus-visible { outline: 1px solid rgba(255,255,255,0.35); outline-offset: 6px; }
+  .opt > .txt { width: 100%; }
+  .opt a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  .opt a:hover { opacity: 1; text-decoration-thickness: 2px; }
+  #or {
+    height: 2.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: opacity 320ms ease, height 320ms ease;
+  }
+  #or span {
+    font-size: 0.62em;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: 0.4;
+  }
+  .dropped { opacity: 0 !important; height: 0 !important; pointer-events: none; }
+  .chosen { cursor: default; }
+  .chosen:hover { opacity: 1; }
+  #next {
+    margin: 0;
+    height: 14px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 600ms ease;
+  }
+  #next.show { opacity: 0.32; }
+  /* ---------- copy to clipboard ---------- */
+  #share {
+    margin: 0;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 400ms ease;
+  }
+  #share.show { opacity: 1; pointer-events: auto; }
+  #copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    background: none;
+    border: 0;
+    margin: 0;
+    padding: 6px 10px;
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 1;
+    transition: opacity 200ms ease;
+  }
+  #copy:hover { opacity: 0.55; }
+  #copy:focus-visible { outline: 1px solid rgba(255,255,255,0.35); outline-offset: 4px; }
+  #copy.hidden { display: none; }
+  #copy .ico { font-size: 17px; letter-spacing: 0; line-height: 1; }
+  #copymsg {
+    display: none;
+    margin: 0;
+    max-width: 34ch;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1.5;
+    opacity: 0.55;
+  }
+  #copymsg.show { display: block; }
+  #whoami {
+    margin: 0;
+    height: 14px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 600ms ease;
+  }
+  #whoami.show { opacity: 0.32; }
+  #whoami button {
+    background: none; border: 0; padding: 0; margin: 0;
+    color: inherit; font: inherit; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  #whoami button:hover { opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<h1>The Distractionator</h1>
+<p class="sub" id="sub">Press the skull for two new mission ideas for the week, then pick the one you want.</p>
+
+<div id="gate">
+  <form id="gateform" autocomplete="off">
+    <input id="who" type="text" placeholder="your name" aria-label="Your name" maxlength="40" autocomplete="off" spellcheck="false">
+    <button type="submit">Go</button>
+  </form>
+</div>
+
+<button id="skull" aria-label="Get the distraction">
+  <img src="skull.png" alt="" draggable="false" onerror="this.style.display='none';document.getElementById('fallback').style.display='block';">
+  <span id="fallback">&#128128;</span>
+</button>
+
+<div id="msgbox">
+  <div id="choices">
+    <div class="opt" id="optA" role="button" tabindex="0"></div>
+    <div id="or"><span>or</span></div>
+    <div class="opt" id="optB" role="button" tabindex="0"></div>
+  </div>
+</div>
+<div id="share">
+  <button id="copy" type="button">
+    <span class="ico" aria-hidden="true">&#128203;</span><span>Copy</span>
+  </button>
+  <p id="copymsg"></p>
+</div>
+
+<p id="next"></p>
+
+<p id="whoami"></p>
+
+
+<!-- ===================================================================
+     THE LIST. One per line.
+     Blank lines are skipped. A line starting with # is a comment.
+     Links: [words you see](https://the-url). Everything else is plain text.
+     Add, delete, reorder freely. Section headers are only for your eyes.
+     =================================================================== -->
+<script id="prompts" type="text/plain">
+
+# ---------- LIBRARIES AND BOOKS ----------
+Go to the library. Check out a book from a section you've never walked down.
+Ask a friendly librarian what they're reading.
+Read the first page of at least five novels. Take home the first one that grabs you.
+Find the oldest book on the shelf you can, open it to the middle, and read the entire page.
+Look up your own last name in the library catalog.
+Go to the library and get "What's Welsh for Zen" by John Cale. If they don't have it, place a request.
+Go to a used bookstore and leave with one paperback.
+Look up the first book you ever loved. Find the "if you liked this, try this" recommendation and order it.
+Read the acknowledgements page of the book nearest you.
+Put a book you've finished somewhere a stranger will find it.
+
+# ---------- AUTHORS, ESSAYS, POEMS ----------
+Read [James Marriott](https://jmarriott.substack.com) on Substack today.
+Read [Freddie deBoer](https://freddiedeboer.substack.com) today. Disagree with him on purpose for ten minutes.
+Pick one essay out of the [David Graeber archive](https://davidgraeber.org/articles/) and read it at lunch.
+Read David Graeber on bullshit jobs. Then write down the part of your own job you'd actually defend.
+Check [aldaily.com](https://www.aldaily.com) today. Read the third link down, whatever it is.
+Check [aldaily.com](https://www.aldaily.com) and read the one you'd normally skip.
+Read a poem by [Jack Gilbert](https://www.poetryfoundation.org/poets/jack-gilbert).
+Read Jack Gilbert's [Meanwhile](https://www.poetryfoundation.org/poems/154420/meanwhile-5f71fc98d6e5f) twice. Once silently, once out loud.
+Read Jack Gilbert's [Going Wrong](https://www.poetryfoundation.org/poems/154251/going-wrong). Then go make lunch.
+Read Jack Gilbert's [The Great Fires](https://www.poetryfoundation.org/poems/154421/the-great-fires) and send one line of it to somebody.
+Read a poem by [Joy Harjo](https://www.poetryfoundation.org/poets/joy-harjo). Out loud, standing up.
+Read a poem by [Layli Long Soldier](https://www.poetryfoundation.org/poets/layli-long-soldier).
+Read a poem by [Natalie Diaz](https://www.poetryfoundation.org/poets/natalie-diaz).
+Spend fifteen minutes in [Native American Poetry and Culture](https://www.poetryfoundation.org/collections/144560/native-american-poetry-and-culture). Take one poem away with you.
+Read ten pages of Robin Wall Kimmerer's "Braiding Sweetgrass". Then go and look at a plant.
+Read a poem by [Ada Limon](https://www.poetryfoundation.org/poets/ada-limon).
+Read a poem by [Lucille Clifton](https://www.poetryfoundation.org/poets/lucille-clifton) and copy your favorite line onto a sticky note.
+Read a poem by [Mary Oliver](https://www.poetryfoundation.org/poets/mary-oliver), then go outside and do what it tells you.
+Read a poem by [Linda Hogan](https://www.poetryfoundation.org/poets/linda-hogan).
+Read Rebecca Solnit on walking. Then take a walk.
+Go online and read an Ursula K. Le Guin essay.
+Read a few pages of Anne Carson and don't try to work out what it means.
+Read something by Zadie Smith today.
+Read one Eduardo Galeano fragment. They take two minutes each.
+Read a sample of Tommy Orange or Louise Erdrich.
+Read the first chapter of Adrian Tchaikovsky's "Children of Time".
+Read Adrian Tchaikovsky's "Elder Race". It's a novella. You can finish it in two days.
+Read Adrian Tchaikovsky's "Dogs of War" and then go and be nice to an animal.
+Read Peter Watts' ["The Things"](https://clarkesworldmagazine.com/watts_01_10/). John Carpenter's film from the monster's side. It's Free. Takes about twenty minutes.
+Listen to Peter Watts' ["The Things"](https://clarkesworldmagazine.com/audio_01_10/) read aloud while you do the washing up.
+Open Kevin Kelly's [Best Magazine Articles Ever](https://kk.org/cooltools/best-magazine-articles-ever/) and read whichever title you can't ignore.
+From [Kevin Kelly's list](https://kk.org/cooltools/best-magazine-articles-ever/), read "Frank Sinatra Has a Cold".
+From [Kevin Kelly's list](https://kk.org/cooltools/best-magazine-articles-ever/), read David Foster Wallace on the lobster.
+From [Kevin Kelly's list](https://kk.org/cooltools/best-magazine-articles-ever/), read Hunter S. Thompson on the Kentucky Derby.
+From [Kevin Kelly's list](https://kk.org/cooltools/best-magazine-articles-ever/), pick something from the decade you were born and read the whole thing.
+Copy out by hand a paragraph that you love.
+Read John Jeremiah Sullivan's ["Feet in Smoke"](https://oxfordamerican.org/magazine/issue-21-22-summer-1998/feet-in-smoke). His brother is electrocuted and comes back not quite the same person.
+Read John Jeremiah Sullivan's ["Mister Lytle"](https://www.theparisreview.org/letters-essays/6048/mister-lytle-an-essay-john-jeremiah-sullivan). He was twenty and living with a ninety-two-year-old novelist.
+Read the Wikipedia page for the year you were born.
+Watch David Wengrow's TED talk, [A new understanding of human history](https://www.youtube.com/watch?v=8SJi0sHrEI4). Seventeen minutes.
+Listen to [Michael Levin](https://lexfridman.com/michael-levin/) on bioelectricity and regrowing limbs. Skip around. It's three hours.
+Listen to Freddie deBoer [explain Marxism to people who aren't Marxists](https://theprogressnetwork.org/podcast/freddie-deboer-marxism/).
+Only listen to [International Rare Groove Radio](https://www.irgradio.net/) today.
+
+# ---------- MAKE SOMETHING (after Corita Kent) ----------
+Find a leaf on the ground. Close one eye and trace your finger along its edge as slowly as possible, as if you're pointing at a tiny ant walking along it. Then get paper and a pencil and draw the leaf at that speed.
+Pick something on your desk like a mug, a stapler, a book, a water bottle. Do a line drawing of it.
+Cut a very small rectangular hole in a piece of card. Carry it around for ten minutes and frame things through it..
+Copy something exactly, by hand. A label, a logo, a page. No improving it.
+Photograph ten signs today. Crop each one down to just the words.
+Go to a gas station or a supermarket and find one genuinely beautiful thing in the packaging. Photograph it.
+Take the same photograph ten times from ten distances.
+Turn a photo upside down and draw what you see, not what you know it to be.
+Pick one letter off a sign outside and draw it as big as the paper allows.
+Write out "I am blessed" and list 2 or 3 things. Tape it where you'll see it tomorrow.
+Make something today and leave the first mistake in it.
+Draw the same object three times: slow, fast, and without looking at the paper.
+Find the ugliest thing in your kitchen and draw a part of it you like.
+Tear up a magazine and make one page out of the pieces.
+Draw your hand with your other hand.
+Look at a crack, a stain, or a rust patch for a full minute, then draw it.
+Ponder this; if you were going to make a zine, what would it be? Share your idea with a friend.
+Make a collaborative 12-song playlist with a friend, taking turns adding one song at a time.
+Make a postcard out of odds and ends and send it to someone.
+Make a "memory box" out of a coffee can, small cardboard box, or container. Decorate it. Write something you did today, fold it up and add it. Put it somewhere where you remember to add to it.
+Type a message really fast this week and send it without correcting any of the autocorrects. 
+
+# ---------- BEER ----------
+Go for a walk while listening to Herbie Hancock's entire album "Thrust".
+Buy a beer for someone who looks like they're having a bad day.
+Go to a bar where you don't speak the language.
+Set a timer for 5 minutes. Find the coolest beer label online you can that you've never seen before and save it to your Pictures.
+Go to diffords.com and find a new cocktail to make.
+Go to the oldest bar you can find.
+Have a small glass of sherry (or small shot of liquor) with lunch, like you're in Europe.
+Take one beer outside at dusk and watch it get dark.
+Buy a single bottle of something you've never heard of. Drink it slowly enough to have an opinion.
+Bring a beer to somebody who's working on something.
+Drink one beer somewhere you've never had one. A stoop, a park bench, a laundromat.
+Have the first round somewhere you'd never have the second.
+
+# ---------- SCREENS OFF ----------
+Plan a 24-hour screen-free day within the next two weeks. Think about what you'll do instead.
+Listen to an album all the way through with no screens or phone.
+Put your phone in a drawer until dinner.
+Look up best recent jazz or classical releases on AllMusic. Pick one and listen to it while doing something else.
+Delete one app. (You can reinstall it tomorrow.)
+Leave your phone at home for one errand.
+Any reading for pleasure today has to be from a book or magazine, not a screen.
+Turn your phone grayscale for the day.
+Unsubscribe from ten emails.
+Leave your phone off and put on a record instead.
+Listen to an album you loved at nineteen.
+Set a reminder now to get up an hour earlier than usual tomorrow and go for a walk.
+
+# ---------- CHEAP FOOD ----------
+Make a cheap lunch plan with someone for next week.
+Find somewhere you can eat lunch for under five dollars.
+Buy a very cheap thing in a store you've never entered.
+Buy the instant noodle brand you never buy.
+Search for the most popular nytimes.com recipes of all time. Pick a simple one and plan to make it this week.
+Buy a single piece of fruit. Eat it before you get home.
+Buy fruit from a street vendor.
+Eat at a food truck or vendor you've never been to before.
+This week, try a cuisine you've never had.
+Eat something you decided you didn't like when you were a kid.
+Ask someone else to order for you at lunch.
+Cook the recipe on the back of a package this week.
+Make a Korean corn-omelet sandwich: fry two bread slices in butter. Beat 2 eggs with a lot of corn and cook it like an omelet. Optionally add a slice or cheese and/or a slice of ham. Garnish with chopped cabbage, ketchup (or hot sauce) and mayo.
+
+# ---------- YOUR CITY, ON FOOT ----------
+Plan a day-long walk across your city. You don't have to take it.
+Go inside an interesting building and look around. Take a photo and text it to a friend or family member.
+Ride a bus or train to the end of the line, explore, then come back.
+Walk along your street until you get to something you haven't noticed before.
+Find the nearest old cemetery or walled garden and sit in it for fifteen minutes.
+Find a piece of public art near you and go stand in front of it. If it makes no sense, enjoy that someone made something that makes no sense.
+Do one full lap of the biggest park near you.
+Walk to the highest point you can reach on foot, and be there at dusk.
+Walk one main street and count what wasn't there five years ago.
+Go inside your city's train station even though you're not going anywhere.
+Walk a stretch of the nearest river, canal or creek path you've never walked.
+Ride one transit line end to end just to ride it.
+Find a building you like and photograph it. Then look up who built it.
+Find a building with a cornerstone and take a picture.
+Walk every street inside a four-block square.
+Go to a neighborhood you have no reason to be in.
+Go on a photo walk. Take pictures of banal things.
+Go on a photo walk. Take pictures of architectural details only.
+Go on a photo walk. Take nature close-ups.
+Go on a walk. Count how many animals (including pets) that you see.
+Good-naturedly photobomb tourists. Ask if they want you in the picture, assuming they do.
+Walk to a place you usually drive to.
+Watch someone working and strike up a conversation about what they're doing.
+Find a set of outdoor stairs and go up them.
+Find the highest public place you can sit and look at the horizon for fifteen minutes.
+
+# ---------- YOUR CITY, BY CAR ----------
+Drive one road out of town until you feel like turning around.
+Drive to the largest body of water near you and stand at the edge of it.
+Drive to the far end of your metro area and get a cheap lunch there.
+Drive to the highest road above your city and look back at it.
+Drive somewhere with no radio on.
+Park somewhere with a view and stay twenty minutes.
+Go to the far grocery store that you never go to.
+
+# ---------- PEOPLE, NO JOINING REQUIRED ----------
+Send a postcard to someone.
+Visit a shop you've never been into and strike up a conversation.
+If you're about to text someone, call them instead.
+Call someone who'd be surprised to hear from you.
+Have a conversation where you just mirror what they're saying. They'll think you're an amazing listener!
+Send a photo to one person with no caption.
+Plan a prank. Bonus points for executing it.
+Compliment a stranger on one specific thing.
+Learn the name of someone you see every week and have never asked. Or admit you forgot their name and ask again.
+Mail something (anything) to someone (anyone).
+Say yes to the next small thing you were going to decline.
+Ask someone for help with something.
+Ask somebody to keep you company while you run an errand.
+Introduce yourself to a neighbor you've never spoken to.
+Say hello first, all day, to everybody.
+Tell one person exactly why you like working with them.
+Go online, find a cool (or ridiculous, or vintage) refrigerator magnet and send it anonymously to a friend.
+Buy an unused vintage postcard off of eBay. When it arrives, send it to a friend or family member. 
+
+# ---------- THE HOUSE / THE MOOD ----------
+Write down three things bothering you, then burn the paper in the sink.
+Take a shower in the middle of the day and put on different clothes.
+Throw away five things you won't miss.
+Wash something that's been sitting there (like a dish or dirty shirt).
+Sit in a spot you never sit in and read for fifteen minutes.
+Do nothing for ten minutes.
+Stretch for five minutes.
+Write one sentence about this week and put it in a box or an old coffee can.
+Hang something that's been rolled up in the corner.
+Take pictures of the inside of your house. In twenty years you'll have a record of what it looked like.
+Reorganize a bookshelf, whether by size, color, topic, or from good to bad.
+Move one piece of furniture and live with it for a week.
+
+# ---------- WORK ----------
+Write down the name of a job you'd want, even if it's unattainable.
+Write down one sentence: the best thing that happened at work this year.
+Ask yourself what you'd tell a colleague to do in your present situation. Then do that.
+Finish that thing that's ninety percent done.
+Write an email you've been avoiding. Three sentences, then send.
+Show someone the unfinished version of something.
+
+# ---------- LEARN SOMETHING ----------
+Learn the species of one tree on your block.
+Watch "Aguirre, the Wrath of God" this week.
+Start watching "My Mister" on Netflix.
+Look up the repertory cinema listings and pick a film for next week.
+Look up the history of your street name.
+Write a list of three things you have to do. Then rewrite the the list, changing "have" to "get".
+Buy a plant that's hard to kill. Make it a mission for the next month. Set reminders on your phone.
+Learn five words in a language you'll never need. Practice them every morning this week.
+Watch a documentary about something you know nothing about.
+Find out who lived in your home or building fifty years ago.
+Discuss the ethics of communicating with octopuses with Claude or ChatGPT.
+Learn to tie a cool knot.
+Find out what birds are outside your window.
+Learn how something you use every day actually works.
+Search for highlights from a recent rugby game and watch them.
+Go to [ChatGPT](https://chatgpt.com/) and ask it to *concisely* explain a philosophical, religious or belief system of your choice. If you can't think of one, try igtheism or panpsychism. Tell it to keep it short and that you'll ask follow up questions if needed.
+Write down five things you'd do with a free Saturday. Put the paper on your fridge.
+Write down eight skills you have. Not subjective ones like "I'm a good gift giver" but concrete ones like "I know CPR." or "I can poach eggs."
+Pick one of your favorite animals (as in "hippo", "otter", etc) and read about it on wikipedia until you learn three really cool things you didn't know.
+Pick a vegetable at the market that you've never cooked. Find a simple recipe and try it.
+
+# ---------- OUTSIDE, DOING NOTHING ----------
+Make a hot beverage in the morning and go for a walk with it.
+Make Spanish hot chocolate tonight: It's a small hot chocolate with cornstarch added as a thickener.
+Drink tea today instead of coffee. Or vice versa.
+Get yourself outside within ten minutes of waking up.
+Stand out in the weather for two minutes on purpose.
+Watch your pet, or any animal, for five full minutes.
+
+# ---------- GO SOMEWHERE ONCE ----------
+Sit in a coffee shop with a book and no laptop.
+Go to a record store and buy nothing.
+Go to a hardware store and walk every aisle.
+Go to a thrift store, buy one thing under three dollars, then leave it for somebody outside.
+Find a free-stuff shelf, box or little library, and take one thing from it.
+Walk into a hotel lobby and sit down like you belong there.
+Look at one thing in a museum for ten minutes straight.
+Go to the airport viewing area and watch planes for half an hour.
+
+# ---------- SMALL ADJUSTMENTS ----------
+Take a different route to somewhere you go every day.
+Wear the thing you've been saving for no reason.
+Use a good thing this week that you've been saving.
+Sit in a different seat than the one you always take.
+Take the stairs everywhere today.
+Put five dollars somewhere you'll forget about it.
+Pick a date two weeks out and put something on it.
+Ask somebody to come along for the thing you'd rather not do alone.
+Set one alarm for something that isn't work.
+Write down what an ordinary good day looks like. Then do one part of it.
+Pick the thing you keep saying you'll do and do the smallest version of it today.
+
+# ---------- OBLIQUE, BUT DO-ABLE ----------
+Take the slowest route.
+Do the easy part first. Then stop.
+Do it badly, on purpose, and finish it.
+Make one decision today by coin flip.
+Use the [I Ching](https://mottstudios.github.io/i-ching/). Ask a question, throw the coins, then make yourself follow the advice.
+One time today, do the opposite of your first instinct.
+When faced with a decision today, choose the thing that results in a larger change in your life.
+Swap the order of two things you always do.
+Pick a song you like, build a radio station from it, and keep only the tracks you'd play again. Pick a different song from this playlist and do the same. Repeat, until you have a 3 hour playlist.
+Pick a color and notice it all day.
+Follow a smell to its source.
+Find out where a noise is coming from.
+Listen to a room for two minutes with your eyes closed.
+Sit outside somewhere and people-watch for 15-20 minutes.
+Take an object outside that has never been outside.
+Take a photo of something people don't usually photograph.
+Choose one object and look at it until you notice something new.
+Find the oldest thing you own and hold it for a minute.
+Throw away the thing you keep moving from place to place.
+Put one thing back where it actually belongs.
+Pick two numbers. Open a book to that page and that line, then do something based on it.
+Do what the most patient person you know would do right now.
+Notice what you avoid looking at. Look at it.
+Do the thing you'd do if you weren't tired.
+Leave something small and free where a stranger will find it.
+Leave the house with no destination and turn back after eleven minutes.
+Make a 45-minute playlist and walk to it. See whether you hit 5,000 steps. Recalibrate for the next time you do it so you know how to hit 5,000 steps.
+Before bed, describe your day in twelve words, then six, then two. Aim for two different words tomorrow.
+
+</script>
+
+<script>
+// ============================================================
+// Set LOCK to true before deploying: one distraction per window,
+// no re-rolling. False = a new random one on every press.
+//
+// WINDOW_HOURS is how long a distraction lasts. 24 = one a day,
+// rolling over at midnight. 12 = one each morning and afternoon.
+// Anything that divides evenly into 24 works: 6, 8, 12, 24.
+// ============================================================
+var LOCK = true;
+var WINDOW_HOURS = 24;
+
+var PROMPTS = document.getElementById("prompts").textContent
+  .split("\n")
+  .map(function (s) { return s.trim(); })
+  .filter(function (s) { return s.length > 0 && s.charAt(0) !== "#"; });
+
+// ---- [text](url) becomes a link. Everything else is escaped plain text.
+function render(s) {
+  var out = String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (m, label, url) {
+    return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+  });
+}
+
+// ============================================================
+// WHO YOU ARE. The name is hashed into a seed, so two people
+// pressing the skull in the same window get different
+// pairs. Each person's own pair is stable for the whole window.
+// ============================================================
+var WHO_KEY = "dailydistraction.who";
+var who = "";
+try { who = localStorage.getItem(WHO_KEY) || ""; } catch (e) {}
+
+// the URL wins over storage: ?who=Name lets you hand someone their own link
+var qs = new RegExp("[?&]who=([^&]*)").exec(window.location.search);
+if (qs) {
+  try { who = decodeURIComponent(qs[1].replace(/\+/g, " ")); } catch (e) { who = qs[1]; }
+  try { if (who) localStorage.setItem(WHO_KEY, who); } catch (e) {}
+}
+
+function normalize(name) {
+  return String(name).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// FNV-1a, so the same name lands on the same seed on every machine
+function seedFor(name) {
+  var h = 2166136261, s = normalize(name);
+  if (!s) s = "anonymous";
+  for (var i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h >>> 0;
+}
+
+// xorshift32, seeded by person + window. Deterministic, no library.
+function rngFrom(seed, w) {
+  var s = (seed ^ ((w + 1) * 2654435761)) >>> 0;
+  if (!s) s = 0x9e3779b9;
+  return function () {
+    s ^= (s << 13); s >>>= 0;
+    s ^= (s >>> 17);
+    s ^= (s << 5); s >>>= 0;
+    return s / 4294967296;
+  };
+}
+
+function slotHours() {
+  var h = Math.round(Number(WINDOW_HOURS) || 24);
+  if (h < 1) h = 1;
+  if (h > 24) h = 24;
+  while (24 % h !== 0) h--;            // keep the slots lined up with midnight
+  return h;
+}
+
+function windowIndex(d) {
+  var h = slotHours();
+  var days = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  return days * (24 / h) + Math.floor(d.getHours() / h);
+}
+
+// locked mode: two distinct deterministic picks for this person, this window
+function lockedPair(w) {
+  var n = PROMPTS.length;
+  var r = rngFrom(seedFor(who), w);
+  r(); r(); r();                       // let the state churn before we take anything
+  var i = Math.floor(r() * n) % n;
+  var j = Math.floor(r() * (n - 1)) % (n - 1);
+  if (j >= i) j++;
+  return [PROMPTS[i], PROMPTS[j]];
+}
+
+function msUntilNext(d) {
+  var h = slotHours();
+  var next = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  next.setHours((Math.floor(d.getHours() / h) + 1) * h);   // setHours(24) rolls to tomorrow
+  return next - d;
+}
+
+var msgbox = document.getElementById("msgbox");
+var optA = document.getElementById("optA");
+var optB = document.getElementById("optB");
+var orEl = document.getElementById("or");
+var nextEl = document.getElementById("next");
+var whoamiEl = document.getElementById("whoami");
+var shareEl = document.getElementById("share");
+var copyBtn = document.getElementById("copy");
+var copyMsg = document.getElementById("copymsg");
+var btn = document.getElementById("skull");
+var gate = document.getElementById("gate");
+var gateForm = document.getElementById("gateform");
+var whoInput = document.getElementById("who");
+var subEl = document.getElementById("sub");
+
+// storage is namespaced per person, so switching names never inherits a choice
+function key(suffix) { return "dailydistraction." + normalize(who) + "." + suffix; }
+
+// ---- the slot is sized to the longest prompt in the list, measured for real,
+// ---- so nothing on the page moves no matter which pair comes up
+function measureSlot() {
+  var w = optA.clientWidth;
+  if (!w) return;
+  var cs = getComputedStyle(optA);
+  var probe = document.createElement("div");
+  probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:normal;";
+  probe.style.width = w + "px";
+  probe.style.font = cs.font;
+  probe.style.fontWeight = cs.fontWeight;
+  probe.style.fontSize = cs.fontSize;
+  probe.style.fontFamily = cs.fontFamily;
+  probe.style.lineHeight = cs.lineHeight;
+  probe.style.letterSpacing = cs.letterSpacing;
+  probe.style.padding = cs.padding;
+  document.body.appendChild(probe);
+  var max = 0;
+  for (var i = 0; i < PROMPTS.length; i++) {
+    probe.innerHTML = render(PROMPTS[i]);
+    if (probe.offsetHeight > max) max = probe.offsetHeight;
+  }
+  document.body.removeChild(probe);
+  if (max) msgbox.style.setProperty("--opt-h", max + "px");
+}
+
+// ---- unlocked mode: shuffled bag, every prompt shows once before any repeats
+var bag = [];
+function nextFree() {
+  if (!bag.length) {
+    bag = PROMPTS.slice();
+    for (var i = bag.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+    }
+  }
+  return bag.pop();
+}
+
+function freePair() {
+  var a = nextFree();
+  var b = nextFree();
+  var guard = 0;
+  while (b === a && guard++ < 5) b = nextFree();
+  return [a, b];
+}
+
+// the one they didn't take goes back in, at a random spot
+function returnToPool(text) {
+  if (!text) return;
+  bag.splice(Math.floor(Math.random() * (bag.length + 1)), 0, text);
+}
+
+var settled = false;
+
+function choose(keep, drop) {
+  if (settled) return;
+  settled = true;
+  if (!LOCK) returnToPool(drop.getAttribute("data-src"));
+  drop.classList.add("dropped");
+  orEl.classList.add("dropped");
+  keep.classList.add("chosen");
+  if (LOCK) { try { localStorage.setItem(key("choice"), keep.getAttribute("data-src")); } catch (e) {} }
+  shareEl.classList.add("show");
+}
+
+// ---------- copy the chosen one, ready to paste to somebody ----------
+// [text](url) flattens to "text (url)" so the link survives a text message
+function plain(s) {
+  return String(s).replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1 ($2)");
+}
+
+function copyText(t) {
+  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+  return new Promise(function (res, rej) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = t;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:absolute;left:-9999px;top:0;";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, t.length);
+      var ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (ok) { res(); } else { rej(); }
+    } catch (e) { rej(e); }
+  });
+}
+
+var copyTimer;
+function flash(text) {
+  copyMsg.textContent = text;
+  copyMsg.classList.add("show");
+  copyBtn.classList.add("hidden");
+  clearTimeout(copyTimer);
+  copyTimer = setTimeout(function () {
+    copyMsg.classList.remove("show");
+    copyBtn.classList.remove("hidden");
+  }, 4500);
+}
+
+copyBtn.addEventListener("click", function () {
+  var el = document.querySelector(".opt.chosen");
+  if (!el) return;
+  var line = "Today's Daily Distraction: " + plain(el.getAttribute("data-src"));
+  copyText(line).then(function () {
+    flash("Saved to your clipboard. Paste this into a message and send to someone.");
+  }).catch(function () {
+    flash("The clipboard said no. Copy it off the screen instead.");
+  });
+});
+
+function wire(el, other) {
+  el.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest("a")) return;    // let links be links
+    choose(el, other);
+  });
+  el.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(el, other); }
+  });
+}
+wire(optA, optB);
+wire(optB, optA);
+
+function paint(pair, chosenText) {
+  optA.innerHTML = '<span class="txt">' + render(pair[0]) + '</span>';
+  optB.innerHTML = '<span class="txt">' + render(pair[1]) + '</span>';
+  optA.setAttribute("data-src", pair[0]);
+  optB.setAttribute("data-src", pair[1]);
+  optA.classList.remove("dropped", "chosen");
+  optB.classList.remove("dropped", "chosen");
+  orEl.classList.remove("dropped");
+  settled = false;
+  shareEl.classList.remove("show");
+  copyMsg.classList.remove("show");
+  copyBtn.classList.remove("hidden");
+  clearTimeout(copyTimer);
+  if (chosenText) {
+    var keep = (chosenText === pair[1]) ? optB : optA;
+    choose(keep, keep === optA ? optB : optA);
+  }
+  msgbox.classList.add("show");
+}
+
+function reveal() {
+  if (!who) { showGate(); return; }
+  if (!LOCK) {
+    msgbox.classList.remove("show");
+    setTimeout(function () { paint(freePair(), null); }, 160);
+    return;
+  }
+  var now = new Date();
+  var w = windowIndex(now);
+  var stored = null;
+  try {
+    if (localStorage.getItem(key("window")) === String(w)) stored = localStorage.getItem(key("choice"));
+    localStorage.setItem(key("window"), String(w));
+    if (!stored) localStorage.removeItem(key("choice"));
+  } catch (e) {}
+  paint(lockedPair(w), stored);
+  var ms = msUntilNext(now);
+  var h = Math.floor(ms / 3600000);
+  var m = Math.floor((ms % 3600000) / 60000);
+  nextEl.textContent = "next one in " + (h > 0 ? h + "h " : "") + m + "m";
+  nextEl.classList.add("show");
+}
+
+// ---------- the name gate ----------
+function showGate() {
+  gate.classList.add("show");
+  btn.style.display = "none";
+  msgbox.classList.remove("show");
+  nextEl.classList.remove("show");
+  shareEl.classList.remove("show");
+  whoamiEl.classList.remove("show");
+  subEl.textContent = "Tell it who you are. Everybody gets a different one.";
+  whoInput.value = "";
+  setTimeout(function () { whoInput.focus(); }, 50);
+}
+
+function hideGate() {
+  gate.classList.remove("show");
+  btn.style.display = "";
+  subEl.textContent = "Press the skull for your daily distraction.";
+  whoamiEl.textContent = "for " + who + " · ";
+  var reset = document.createElement("button");
+  reset.type = "button";
+  reset.textContent = "not you?";
+  reset.addEventListener("click", function () {
+    who = "";
+    try { localStorage.removeItem(WHO_KEY); } catch (e) {}
+    showGate();
+  });
+  whoamiEl.appendChild(reset);
+  whoamiEl.classList.add("show");
+  measureSlot();
+}
+
+gateForm.addEventListener("submit", function (e) {
+  e.preventDefault();
+  var v = whoInput.value.trim();
+  if (!normalize(v)) return;
+  who = v;
+  try { localStorage.setItem(WHO_KEY, who); } catch (e) {}
+  hideGate();          // the skull is theirs to press -- don't reveal for them
+});
+
+btn.addEventListener("click", reveal);
+
+measureSlot();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureSlot);
+var rz;
+window.addEventListener("resize", function () {
+  clearTimeout(rz);
+  rz = setTimeout(measureSlot, 150);
+});
+
+if (!who) {
+  showGate();
+} else {
+  hideGate();
+  try {
+    if (LOCK && localStorage.getItem(key("window")) === String(windowIndex(new Date()))) reveal();
+  } catch (e) {}
+}
+</script>
+
+</body>
+</html>
