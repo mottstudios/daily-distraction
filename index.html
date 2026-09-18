@@ -10,7 +10,8 @@
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html { margin: 0; }
+  body { margin: 0; min-height: 100vh; }
   body {
     background: #000;
     color: #fff;
@@ -20,11 +21,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 40px 24px;
     text-align: center;
     gap: 28px;
   }
+  body > :first-child { margin-top: auto; }
+  body > :last-child { margin-bottom: auto; }
   h1 {
     margin: 0;
     font-weight: 600;
@@ -49,7 +52,7 @@
   }
   #skull:active { transform: scale(0.94); }
   #skull img {
-    width: clamp(160px, 36vw, 260px);
+    width: clamp(140px, min(36vw, 30vh), 260px);
     height: auto;
     display: block;
     -webkit-user-drag: none;
